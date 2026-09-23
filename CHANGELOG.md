@@ -76,4 +76,4 @@ Commits: `0a92a2d`, `035a861`, `5adbfbe`.
 
 - Initial repository commit (`d07225a`). No tagged release date is recorded in the local Git history.
 
-[Unreleased]: https://github.com/{{GITHUB_OWNER}}/muse-commerce-audit/commits/HEAD
+[Unreleased]: https://github.com/arananet/muse-sdk-agentic-commerce/commits/HEAD

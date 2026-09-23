@@ -1,6 +1,12 @@
-# muse-commerce-audit
+# muse-sdk-agentic-commerce
 
-An auditor that opens your shop in **real headless Chromium** (Playwright) and checks
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-gray) ![muse-code-sdk](https://img.shields.io/badge/muse--code--sdk-gray) ![OpenSpec](https://img.shields.io/badge/OpenSpec-enforced-blueviolet) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+> Chromium auditor and agentic mystery shopper that checks whether an AI shopping agent (Meta Muse) can read and buy from your shop, with optional analysis by a real Muse Code agent via `@muse-code/sdk`.
+
+---
+
+**`muse-commerce-audit`** opens your shop in **real headless Chromium** (Playwright) and checks
 whether an AI shopping agent such as **Meta Muse** can discover, understand and act on
 the page — **without the Universal Commerce Protocol**, using only public web
 standards. It can also let a **real Muse Code agent** browse and shop the page itself
@@ -37,6 +43,8 @@ node dist/src/cli.js --user-agent "meta-externalagent/1.1" https://...
 
 Exits with code `1` when any error is found (handy in CI).
 
+![Audit output](docs/screenshots/audit.png)
+
 ### Mystery shopper (`--journey`)
 
 Walks the purchase in Chromium **using only ARIA roles and accessible names**, the way
@@ -50,6 +58,15 @@ types into forms.** It does add an item to a real cart.
 node dist/src/cli.js --journey --trace trace.zip https://your-shop.example/product/123
 npx playwright show-trace trace.zip   # step-by-step replay
 ```
+
+![Mystery shopper journey](docs/screenshots/journey.png)
+
+It stops at the payment boundary:
+
+<img src="docs/screenshots/shop-boundary.png" alt="Checkout with the Place order button marked as the payment boundary" width="520">
+
+Screenshots come from the test suite's fixture shop and are regenerated with
+`npm run screenshots`.
 
 ### With real Muse Code: Muse browses with Chromium
 
@@ -96,3 +113,35 @@ The end-to-end `--muse` mode has no automated test: it needs the `muse` binary.
 - `src/muse.ts` — `@muse-code/sdk` integration
 - `src/mcp-server.ts` — stdio MCP server for Muse Code
 - `.openspec/specs/` — specs
+
+## Contributing
+
+This project uses **OpenSpec** for spec-driven development — every feature or bugfix
+starts with a spec under `.openspec/specs/`. See [`docs/OPENSPEC.md`](docs/OPENSPEC.md)
+and [`CONTRIBUTING.md`](CONTRIBUTING.md). Run `bash scripts/openspec check` before
+opening a PR.
+
+## Documentation
+
+| Topic | Where |
+| --- | --- |
+| Spec-driven workflow | [`docs/OPENSPEC.md`](docs/OPENSPEC.md) |
+| Security policy | [`SECURITY.md`](SECURITY.md) |
+| Support channels | [`SUPPORT.md`](SUPPORT.md) |
+| Release history | [`CHANGELOG.md`](CHANGELOG.md) |
+
+---
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+## Developer
+
+Eduardo Arana
+
+## Support this with a ko-fi
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H2H51MPWG)

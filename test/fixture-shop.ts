@@ -48,7 +48,8 @@ export async function startShop(): Promise<Shop> {
     }
     if (req.url === "/robots.txt") return res.end("User-agent: *\nAllow: /\n");
     const html = PAGES[req.url ?? ""];
-    res.writeHead(html ? 200 : 404, { "content-type": "text/html; charset=utf-8" }).end(html ?? "not found");
+    const style = "<style>body{font:16px system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#1d1d1f}button,a{font:inherit}button{padding:8px 16px;border-radius:8px;border:1px solid #888;background:#111;color:#fff}select,input{font:inherit;padding:6px;margin:4px 0 12px;display:block}</style>";
+    res.writeHead(html ? 200 : 404, { "content-type": "text/html; charset=utf-8" }).end(html ? style + html : "not found");
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   shop.base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
