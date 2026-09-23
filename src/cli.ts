@@ -3,10 +3,11 @@ import { parseArgs } from "node:util";
 import { evaluate, type Report } from "./checks.js";
 import { collect } from "./collect.js";
 
-const HELP = `usage: muse-commerce-audit <url> [--json] [--user-agent UA] [--muse] [--muse-bin PATH] [--model ID]
+const HELP = `usage: muse-commerce-audit <url> [--json] [--user-agent UA] [--journey [--trace FILE]] [--muse] [--muse-bin PATH] [--model ID]
 
 Loads <url> in headless Chromium and reports whether an AI shopping agent can
-read and act on it. --muse also has a real Muse Code agent browse the page itself
+read and act on it. --journey runs the mystery shopper up to the pay button
+(adds an item to a real cart; never types or pays). --muse also has a real Muse Code agent browse the page itself
 through this repo's commerce_audit MCP server (needs the muse CLI).`;
 
 const { values, positionals } = parseArgs({
@@ -15,6 +16,8 @@ const { values, positionals } = parseArgs({
     json: { type: "boolean" },
     "user-agent": { type: "string" },
     muse: { type: "boolean" },
+    journey: { type: "boolean" },
+    trace: { type: "string" },
     "muse-bin": { type: "string" },
     model: { type: "string" },
     help: { type: "boolean", short: "h" },
@@ -24,6 +27,20 @@ const { values, positionals } = parseArgs({
 if (values.help || positionals.length !== 1) {
   console.log(HELP);
   process.exit(values.help ? 0 : 2);
+}
+
+if (values.journey) {
+  const { runJourney } = await import("./shopper.js");
+  const j = await runJourney(positionals[0], { userAgent: values["user-agent"], tracePath: values.trace });
+  if (values.json) console.log(JSON.stringify(j, null, 2));
+  else {
+    console.log(`\n${j.url}\nMystery-shopper journey: ${j.score}/100${j.reachedPaymentBoundary ? " (reached payment boundary, not paid)" : ""}\n`);
+    const icon = { passed: "✓", failed: "✗", skipped: "-" };
+    for (const s of j.steps) console.log(`  ${icon[s.status]} [${s.id}] ${s.detail}`);
+    if (j.overlaysDismissed.length) console.log(`\n  Overlays dismissed: ${j.overlaysDismissed.join(", ")}`);
+    if (values.trace) console.log(`  Trace: npx playwright show-trace ${values.trace}`);
+  }
+  process.exit(j.steps.some((s) => s.status === "failed") ? 1 : 0);
 }
 
 const evidence = await collect(positionals[0], { userAgent: values["user-agent"] });

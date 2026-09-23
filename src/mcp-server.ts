@@ -6,6 +6,8 @@
 import { createInterface } from "node:readline";
 import { evaluate } from "./checks.js";
 import { collect } from "./collect.js";
+import { PAY, runJourney } from "./shopper.js";
+import { chromium, type Browser, type Page } from "playwright";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const urlArg = {
@@ -32,7 +34,111 @@ export const TOOLS = [
     inputSchema: urlArg,
     annotations: { readOnlyHint: true },
   },
+  {
+    name: "mystery_shop",
+    description:
+      "Walk the purchase journey in Chromium by ARIA role/name: dismiss overlays, pick a variant, add to cart, verify cart feedback, reach checkout, check guest checkout, autocomplete coverage and price drift. Stops at the pay button; never types or pays. Adds an item to a real cart.",
+    inputSchema: urlArg,
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  {
+    name: "shop_open",
+    description: "Open a URL in a persistent Chromium tab for step-by-step shopping. Returns URL, title and ARIA snapshot.",
+    inputSchema: urlArg,
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: "shop_view",
+    description: "Return the current tab's URL, title and ARIA snapshot.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: true },
+  },
+  {
+    name: "shop_click",
+    description:
+      "Click the first visible element with this ARIA role and exact accessible name, as an agent would. Refuses pay / place-order controls.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        role: { type: "string", enum: ["button", "link", "checkbox", "radio", "tab", "menuitem", "option"] },
+        name: { type: "string", description: "Exact accessible name from the ARIA snapshot." },
+      },
+      required: ["role", "name"],
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  {
+    name: "shop_select",
+    description: "Choose an option in the combobox (select) with this accessible name.",
+    inputSchema: {
+      type: "object",
+      properties: { name: { type: "string" }, option: { type: "string", description: "Option label or value." } },
+      required: ["name", "option"],
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false },
+  },
+  {
+    name: "shop_close",
+    description: "Close the step-by-step shopping tab.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: true },
+  },
 ];
+
+let browser: Browser | undefined;
+let tab: Page | undefined;
+
+const text = (body: unknown, isError = false) => ({
+  content: [{ type: "text", text: typeof body === "string" ? body : JSON.stringify(body, null, 2) }],
+  ...(isError ? { isError: true } : {}),
+});
+
+async function view(page: Page) {
+  await page.waitForLoadState("networkidle").catch(() => {});
+  return text({ url: page.url(), title: await page.title(), ariaSnapshot: (await page.locator("body").ariaSnapshot()).slice(0, 15000) });
+}
+
+async function stepTool(name: string, args: Record<string, unknown>) {
+  if (!name.startsWith("shop_")) return undefined;
+  if (name === "shop_open") {
+    const url = String(args.url ?? "");
+    if (!/^https?:\/\//.test(url)) return text("url must be absolute http(s)", true);
+    browser ??= await chromium.launch();
+    await tab?.context().close();
+    const ctx = await browser.newContext(typeof args.user_agent === "string" ? { userAgent: args.user_agent } : {});
+    tab = await ctx.newPage();
+    tab.setDefaultTimeout(10000);
+    await tab.goto(url, { waitUntil: "networkidle" });
+    return view(tab);
+  }
+  if (name === "shop_close") {
+    await tab?.context().close();
+    tab = undefined;
+    return text("closed");
+  }
+  if (!tab) return text("no open tab: call shop_open first", true);
+  if (name === "shop_view") return view(tab);
+  if (name === "shop_click") {
+    const label = String(args.name ?? "");
+    if (PAY.test(label)) return text(`refused: "${label}" is a payment control; the mystery shopper stops at the payment boundary`, true);
+    const role = String(args.role) as Parameters<Page["getByRole"]>[0];
+    for (const el of await tab.getByRole(role, { name: label, exact: true }).all()) {
+      if (await el.isVisible()) {
+        await el.click();
+        return view(tab);
+      }
+    }
+    return text(`no visible ${role} named "${label}"`, true);
+  }
+  if (name === "shop_select") {
+    const box = tab.getByRole("combobox", { name: String(args.name ?? ""), exact: true }).first();
+    if ((await box.count()) === 0) return text(`no combobox named "${args.name}"`, true);
+    const option = String(args.option ?? "");
+    await box.selectOption({ label: option }).catch(() => box.selectOption(option));
+    return view(tab);
+  }
+  return undefined;
+}
 
 type Msg = { id?: string | number | null; method?: string; params?: Record<string, unknown> };
 
@@ -41,9 +147,12 @@ function send(obj: unknown) {
 }
 
 async function callTool(name: string, args: Record<string, unknown>) {
+  const stepped = await stepTool(name, args);
+  if (stepped) return stepped;
   const url = String(args.url ?? "");
-  if (!/^https?:\/\//.test(url)) return { content: [{ type: "text", text: "url must be absolute http(s)" }], isError: true };
+  if (!/^https?:\/\//.test(url)) return text("url must be absolute http(s)", true);
   const userAgent = typeof args.user_agent === "string" ? args.user_agent : undefined;
+  if (name === "mystery_shop") return text(await runJourney(url, { userAgent, browser: (browser ??= await chromium.launch()) }));
   const ev = await collect(url, { userAgent });
   const body =
     name === "agent_view"
@@ -57,7 +166,7 @@ async function callTool(name: string, args: Record<string, unknown>) {
           ariaSnapshot: ev.ariaSnapshot,
         }
       : evaluate(ev);
-  return { content: [{ type: "text", text: JSON.stringify(body, null, 2) }] };
+  return text(body);
 }
 
 export async function handle(msg: Msg): Promise<unknown | undefined> {
@@ -107,5 +216,8 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     }
     inflight.push(handle(msg).then((r) => { if (r) send(r); }));
   });
-  rl.on("close", () => void Promise.all(inflight).then(() => process.exit(0)));
+  rl.on("close", () => void Promise.all(inflight).then(async () => {
+    await browser?.close();
+    process.exit(0);
+  }));
 }

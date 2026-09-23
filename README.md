@@ -37,14 +37,30 @@ node dist/src/cli.js --user-agent "meta-externalagent/1.1" https://...
 
 Código de salida `1` si hay algún error (útil en CI).
 
+### Mystery shopper (`--journey`)
+
+Recorre la compra en Chromium **solo por rol ARIA y nombre accesible**, como un agente:
+descarta overlays (cookies, popups) → elige variante → "Añadir al carrito" → comprueba
+que hay feedback legible por máquina (URL, `aria-live`, `role=status`, diálogo) → va
+al carrito/checkout → mide compra como invitado, cobertura `autocomplete` y deriva de
+precio (ficha → total). **Se detiene en el botón de pagar y nunca lo pulsa; no escribe en formularios.**
+Sí añade un producto a un carrito real.
+
+```sh
+node dist/src/cli.js --journey --trace trace.zip https://tu-tienda.com/producto/123
+npx playwright show-trace trace.zip   # vídeo/DOM paso a paso
+```
+
 ### Con Muse Code real: Muse navega con Chromium
 
 Siguiendo la [docu del developer preview](https://meta-models.github.io/muse-code-sdk/)
 (Extending Muse Code → MCP servers / Skills), el repo trae:
 
 - `.mcp.json` → servidor MCP stdio `commerce_audit` (`dist/src/mcp-server.js`) con dos
-  herramientas de solo lectura (`readOnlyHint`): `agent_view` (lo que percibe un agente
-  en Chromium: árbol ARIA, JSON-LD, controles de compra, bloqueos) y `audit_page` (checks y puntuación).
+  herramientas: `agent_view` y `audit_page` (solo lectura), `mystery_shop` (recorrido
+  determinista) y `shop_open` / `shop_view` / `shop_click` / `shop_select` / `shop_close`
+  para que **Muse conduzca la compra paso a paso** en una pestaña persistente;
+  `shop_click` rechaza controles de pago.
 - `.agents/skills/agentic-commerce-audit/SKILL.md` → skill que guía a Muse: ver la página,
   repetir con UA `meta-externalagent`, auditar y dar veredicto + arreglos.
 
@@ -78,4 +94,5 @@ El modo `--muse` extremo a extremo no tiene test automático: necesita el binari
 - `src/robots.ts` — parser robots.txt
 - `src/muse.ts` — integración `@muse-code/sdk`
 - `src/mcp-server.ts` — servidor MCP stdio para Muse Code
+- `src/shopper.ts` — mystery shopper
 - `.openspec/specs/muse-commerce-auditor.spec.yaml` — spec

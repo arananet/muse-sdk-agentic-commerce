@@ -17,7 +17,14 @@ The argument is a product page URL.
    `user_agent: "meta-externalagent/1.1"` and report any difference (blocking,
    different content).
 3. Call `mcp__commerce_audit__audit_page` with the URL for the heuristic findings.
-4. Answer with: a verdict (ready / partially ready / not ready), what you as an
+4. Mystery shopper: drive the purchase yourself with `shop_open` (the URL),
+   then `shop_view`, `shop_click` (role + exact accessible name from the snapshot)
+   and `shop_select`, using only what the ARIA snapshot tells you: dismiss overlays,
+   pick a variant, add to cart, confirm it worked, go to checkout. Stop when you
+   see a pay / place-order control (`shop_click` refuses it anyway), then `shop_close`.
+   Note every point where you hesitated or guessed. Then call `mystery_shop` with
+   the URL for the deterministic journey and compare it with your own walk.
+5. Answer with: a verdict (ready / partially ready / not ready), what you as an
    agent perceived, and the five most important concrete fixes, most important first.
 
-Do not submit forms, add items to a cart or buy anything. Do not use other tools.
+Never type personal or payment data, submit forms or pay. Adding to cart is allowed. Do not use other tools.

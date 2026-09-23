@@ -24,6 +24,7 @@ Guidelines:
 ### Added
 
 - Chromium agent-readiness auditor with optional Muse Code analysis via `@muse-code/sdk` (spec: muse-commerce-auditor).
+- Mystery shopper journey (`--journey`, `mystery_shop` and stepwise `shop_*` MCP tools) that stops at the payment boundary (spec: mystery-shopper).
 
 ### Added
 
