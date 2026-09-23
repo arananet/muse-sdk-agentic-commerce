@@ -10,12 +10,7 @@ changes remain undated under `Unreleased`.
 
 <!--
 Guidelines:
-- Add a new entry under `## [Unreleased]
-
-### Added
-
-- Chromium agent-readiness auditor with optional Muse Code analysis via `@muse-code/sdk` (spec: muse-commerce-auditor).
- as you work — no batching up for release day.
+- Add a new entry under `## [Unreleased]` as you work — no batching up for release day.
 - Group entries under: Added, Changed, Deprecated, Removed, Fixed, Security.
 - Reference the spec slug and PR number:  "Added dark mode (spec: dark-mode, #42)".
 - On release, rename `[Unreleased]` to the new version with the release date,
@@ -25,6 +20,10 @@ Guidelines:
 -->
 
 ## [Unreleased]
+
+### Added
+
+- Chromium agent-readiness auditor with optional Muse Code analysis via `@muse-code/sdk` (spec: muse-commerce-auditor).
 
 ### Added
 
