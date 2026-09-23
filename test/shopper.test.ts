@@ -24,7 +24,7 @@ test("full journey reaches the payment boundary and never pays", async () => {
   const trace = join(mkdtempSync(join(tmpdir(), "shop-")), "trace.zip");
   const r = await runJourney(`${shop.base}/pdp`, { browser, tracePath: trace });
   const s = byId(r);
-  assert.deepEqual(r.overlaysDismissed, ["Accept all"]);
+  assert.deepEqual(r.overlaysDismissed, ["Accept all (consent granted)"], "accept is only a fallback, and disclosed");
   for (const id of ["load", "variant", "add-to-cart", "cart-signal", "reach-checkout", "guest-checkout", "payment-boundary"]) {
     assert.equal(s[id].status, "passed", `${id}: ${s[id].detail}`);
   }
@@ -39,7 +39,27 @@ test("full journey reaches the payment boundary and never pays", async () => {
   assert.equal(r.productPrice, 49.9);
   assert.equal(r.checkoutTotal, 54.85);
   assert.equal(r.priceDrift, 4.95);
+  assert.equal(s["price-drift"].status, "passed", "a higher total (tax/shipping) is informational");
+  assert.match(s["price-drift"].detail, /\+4\.95/);
+});
+
+test("cookie banner: reject is preferred over accept", async () => {
+  const r = await runJourney(`${shop.base}/pdp-reject`, { browser });
+  assert.deepEqual(r.overlaysDismissed, ["Reject all"]);
+});
+
+test("checkout total below the product price fails price drift", async () => {
+  const r = await runJourney(`${shop.base}/cheap`, { browser });
+  const s = byId(r);
+  assert.equal(r.priceDrift, -9.9);
   assert.equal(s["price-drift"].status, "failed");
+  assert.equal(shop.payHits, 0);
+});
+
+test("a cart control that goes nowhere stops with loop detected", async () => {
+  const s = byId(await runJourney(`${shop.base}/loop`, { browser }));
+  assert.equal(s["reach-checkout"].status, "failed");
+  assert.match(s["reach-checkout"].detail, /Loop detected: "View cart"/);
 });
 
 test("add-to-cart with no machine-readable feedback fails the cart signal", async () => {

@@ -1,7 +1,7 @@
 {
   "name": "muse-commerce-audit",
   "version": "0.1.0",
-  "description": "Chromium auditor: can an AI shopping agent (Meta Muse) read and act on your shop?",
+  "description": "Chromium auditor: measures whether a standards-following AI shopping agent can discover, understand and act on your shop, without UCP.",
   "license": "MIT",
   "type": "module",
   "bin": {

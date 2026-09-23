@@ -22,7 +22,13 @@ export interface MuseOptions {
 export function decide(toolName: string, choices: readonly { choiceId: string; decision: string; scope: string }[]) {
   const wanted = toolName.startsWith(TOOL_PREFIX) ? ["approved"] : ["denied", "abort"];
   const pick = choices.find((c) => wanted.includes(c.decision) && (c.decision !== "approved" || c.scope === "once"));
-  if (!pick) throw new Error(`no ${wanted.join("/")} choice offered for ${toolName}`);
+  if (!pick) {
+    const offered = choices.map((c) => `${c.decision}/${c.scope}`).join(", ");
+    throw new Error(
+      `no ${wanted.join("/")} choice offered for ${toolName} (offered: ${offered}); ` +
+        `this policy targets the approval choices of @muse-code/sdk 1.3.0 / Muse Code 1.3.x`,
+    );
+  }
   return { choiceId: pick.choiceId };
 }
 

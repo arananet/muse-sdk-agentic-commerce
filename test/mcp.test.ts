@@ -85,6 +85,10 @@ test("MCP stepwise shopping keeps state across calls and refuses to pay", async 
     assert.match(refused.text, /refused/);
     assert.equal(shop.payHits, 0);
 
+    await call("shop_open", { url: `${shop.base}/card` });
+    const cont = JSON.parse((await call("shop_click", { role: "link", name: "Continue" })).text);
+    assert.match(cont.warning, /Payment inputs are now visible \(cc-number\)/);
+
     const journey = JSON.parse((await call("mystery_shop", { url: `${shop.base}/pdp` })).text);
     assert.equal(journey.reachedPaymentBoundary, true);
     assert.equal(shop.payHits, 0);
@@ -104,5 +108,5 @@ test("approval policy: approve our MCP tools once, deny everything else", () => 
   assert.equal(decide("mcp__commerce_audit__agent_view", choices).choiceId, "allow_once");
   assert.equal(decide("shell", choices).choiceId, "deny");
   assert.equal(decide("mcp__other__x", choices).choiceId, "deny");
-  assert.throws(() => decide("shell", [choices[0]]));
+  assert.throws(() => decide("shell", [choices[0]]), /offered: approved\/once.*@muse-code\/sdk 1\.3\.0/);
 });

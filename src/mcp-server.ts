@@ -6,7 +6,7 @@
 import { createInterface } from "node:readline";
 import { evaluate } from "./checks.js";
 import { collect } from "./collect.js";
-import { PAY, runJourney } from "./shopper.js";
+import { PAY, paymentInputs, runJourney } from "./shopper.js";
 import { chromium, type Browser, type Page } from "playwright";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -93,9 +93,14 @@ const text = (body: unknown, isError = false) => ({
   ...(isError ? { isError: true } : {}),
 });
 
-async function view(page: Page) {
+async function view(page: Page, warning?: string) {
   await page.waitForLoadState("networkidle").catch(() => {});
-  return text({ url: page.url(), title: await page.title(), ariaSnapshot: (await page.locator("body").ariaSnapshot()).slice(0, 15000) });
+  return text({
+    url: page.url(),
+    title: await page.title(),
+    ...(warning ? { warning } : {}),
+    ariaSnapshot: (await page.locator("body").ariaSnapshot()).slice(0, 15000),
+  });
 }
 
 async function stepTool(name: string, args: Record<string, unknown>) {
@@ -125,7 +130,10 @@ async function stepTool(name: string, args: Record<string, unknown>) {
     for (const el of await tab.getByRole(role, { name: label, exact: true }).all()) {
       if (await el.isVisible()) {
         await el.click();
-        return view(tab);
+        await tab.waitForLoadState("networkidle").catch(() => {});
+        // The PAY guard only sees accessible names; a "Continue" button can still lead to payment.
+        const pay = await paymentInputs(tab);
+        return view(tab, pay.length ? `Payment inputs are now visible (${pay.join(", ")}): this is the payment boundary, stop here` : undefined);
       }
     }
     return text(`no visible ${role} named "${label}"`, true);

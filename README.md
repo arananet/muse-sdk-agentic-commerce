@@ -2,29 +2,20 @@
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-gray) ![muse-code-sdk](https://img.shields.io/badge/muse--code--sdk-gray) ![OpenSpec](https://img.shields.io/badge/OpenSpec-enforced-blueviolet) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-> Chromium auditor and agentic mystery shopper that checks whether an AI shopping agent (Meta Muse) can read and buy from your shop, with optional analysis by a real Muse Code agent via `@muse-code/sdk`.
+> `muse-commerce-audit` opens your shop in **real headless Chromium** (Playwright) and checks whether a standards-following AI shopping agent can discover, understand and act on the page, using only public web standards. It can also ask a **real Muse Code agent** to browse and shop the page itself through the official [`@muse-code/sdk`](https://www.npmjs.com/package/@muse-code/sdk) (developer preview), as a second opinion from a frontier agent.
+
+> **Honest caveat, up front:** Meta has not published the rules its consumer Muse shopping agent applies, so nothing here reproduces its internal logic. Two things this measures instead: (1) machine-readability against public standards (robots.txt RFC 9309, schema.org, the ARIA accessibility tree), which is what any well-behaved shopping agent builds on; (2) what Muse Code, a real frontier agent driven through the public SDK, can actually do with the page. Treat the Muse verdict as a second opinion, not as the shopping product's verdict.
+
+No Universal Commerce Protocol endpoints are needed or checked.
 
 ---
-
-**`muse-commerce-audit`** opens your shop in **real headless Chromium** (Playwright) and checks
-whether an AI shopping agent such as **Meta Muse** can discover, understand and act on
-the page — **without the Universal Commerce Protocol**, using only public web
-standards. It can also let a **real Muse Code agent** browse and shop the page itself
-through the official [`@muse-code/sdk`](https://www.npmjs.com/package/@muse-code/sdk)
-(developer preview).
-
-> Honest caveat: Meta has not published the rules its consumer Muse agent applies when
-> browsing. The checks are heuristics based on standards (robots.txt RFC 9309,
-> schema.org, the ARIA accessibility tree), not Muse's internal logic. The public SDK
-> drives **Muse Code** (the agent) over MSP; it does not expose the consumer product's
-> browser.
 
 ## What it checks
 
 | Check | What it looks at |
 |---|---|
 | `bot-wall`, `http-status` | 403/429/CAPTCHA/Cloudflare/DataDome when loaded by headless Chromium |
-| `robots-*` | Whether robots.txt blocks `meta-externalagent`, `meta-externalfetcher`, `facebookexternalhit`, `FacebookBot` |
+| `robots-*` | Whether robots.txt blocks Meta's documented **crawlers**: `meta-externalagent`, `meta-externalfetcher` (error), `facebookexternalhit`, `FacebookBot` (warning). The shopping agent's own browsing UA is unpublished, so this is a proxy. |
 | `product-schema`, `offer-*`, `product-*` | `Product`/`Offer` JSON-LD: name, price, currency, availability, image, sku/gtin |
 | `price-mismatch` | JSON-LD price is visible in the rendered text |
 | `no-js`, `no-js-text` | Product data present in the server HTML without running JavaScript |
@@ -41,7 +32,9 @@ node dist/src/cli.js --json https://your-shop.example/product/123
 node dist/src/cli.js --user-agent "meta-externalagent/1.1" https://...
 ```
 
-Exits with code `1` when any error is found (handy in CI).
+Exits with code `1` when any error is found (handy in CI). The 0–100 score is a rough
+ordering signal from uncalibrated weights (error −25, warning −10), not a calibrated grade:
+do not read 73 vs 81 as meaningful. A bare HTTP 503 is retried once before it is reported.
 
 ![Audit output](docs/screenshots/audit.png)
 
@@ -51,8 +44,16 @@ Walks the purchase in Chromium **using only ARIA roles and accessible names**, t
 an agent would: dismiss overlays (cookies, popups) → choose a variant → "Add to cart" →
 verify machine-readable feedback (URL change, `aria-live`, `role=status`, dialog) → go
 to cart/checkout → measure guest checkout, `autocomplete` coverage and price drift
-(product page → total). **It stops at the pay button and never presses it; it never
-types into forms.** It does add an item to a real cart.
+(product page → total; a higher total from tax/shipping is informational, a total *below*
+the product price fails). **It stops at the pay button and never presses it; it never
+types into forms.** Side effects to be aware of: it adds an item to a real cart, and to
+get past a blocking cookie banner it prefers reject / dismiss-only buttons but **may
+accept cookies** as a fallback (reported as "consent granted").
+
+The payment boundary is best-effort: it matches pay / place-order accessible names, and
+the stepwise `shop_click` also warns when card fields or payment iframes appear after a
+click (a pay step behind a "Continue" button). The hard guarantee is that no tool can
+type into forms. See [SECURITY.md](SECURITY.md).
 
 ```sh
 node dist/src/cli.js --journey --trace trace.zip https://your-shop.example/product/123
@@ -79,7 +80,8 @@ Following the [developer preview docs](https://meta-models.github.io/muse-code-s
   the purchase step by step** in a persistent tab; `shop_click` refuses payment controls.
 - `.agents/skills/agentic-commerce-audit/SKILL.md` → a skill that guides Muse: view the
   page, repeat with the `meta-externalagent` UA, audit, shop it itself, and give a
-  verdict with fixes.
+  verdict — agent-readiness against public standards (ready / partially ready / not
+  ready) — with fixes.
 
 Requirements: the `muse` CLI 1.3.x, logged in; `npm run build`; and a trusted workspace
 (project `.mcp.json` files and skills only load in trusted workspaces):
@@ -92,7 +94,8 @@ node dist/src/cli.js --muse https://your-shop.example/product/123
 `--muse` uses `@muse-code/sdk`: it spawns `muse serve`, starts a session with this repo
 as `workspaceRoot`, checks `skill/list`, invokes the skill with a `skill` input part,
 **approves only `mcp__commerce_audit__*` tools** (once) and denies everything else, then
-prints the reply. In the Muse TUI: `/agentic-commerce-audit https://...`.
+prints the deterministic audit and the Muse Code second opinion as two labeled sections.
+In the Muse TUI: `/agentic-commerce-audit https://...`.
 
 ## Tests
 
