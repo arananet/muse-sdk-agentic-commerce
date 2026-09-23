@@ -5,6 +5,7 @@ import { chromium, type Browser } from "playwright";
 import { evaluate } from "../src/checks.js";
 import { collect } from "../src/collect.js";
 import { isAllowed, parseRobots } from "../src/robots.js";
+import { startShop } from "./fixture-shop.js";
 
 const PRODUCT = {
   "@context": "https://schema.org",
@@ -78,6 +79,34 @@ test("robots.txt blocking meta-externalagent is an error", async () => {
     assert.equal(f?.severity, "error");
   } finally {
     robots = "User-agent: *\nAllow: /\n";
+  }
+});
+
+test("robots severity: AI-data crawlers are errors, preview bots warnings", async () => {
+  robots = "User-agent: facebookexternalhit\nDisallow: /\n\nUser-agent: FacebookBot\nDisallow: /\n";
+  try {
+    const r = await audit("/good");
+    const robotsFindings = r.findings.filter((f) => f.id.startsWith("robots-"));
+    assert.deepEqual(robotsFindings.map((f) => [f.id, f.severity]), [
+      ["robots-facebookexternalhit", "warning"],
+      ["robots-facebookbot", "warning"],
+    ]);
+    assert.equal(r.score, 80);
+  } finally {
+    robots = "User-agent: *\nAllow: /\n";
+  }
+});
+
+test("bare 503 is retried once before being reported", async () => {
+  const shop = await startShop();
+  try {
+    const ok = evaluate(await collect(`${shop.base}/flaky`, { browser, retryDelayMs: 50 }));
+    assert.equal(shop.flakyHits, 2);
+    assert.ok(!ok.findings.some((f) => f.id === "bot-wall"));
+    const down = evaluate(await collect(`${shop.base}/down`, { browser, retryDelayMs: 50 }));
+    assert.match(down.findings.find((f) => f.id === "bot-wall")!.message, /HTTP 503 \(transient or bot protection; retried once\)/);
+  } finally {
+    shop.close();
   }
 });
 

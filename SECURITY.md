@@ -52,6 +52,23 @@ Out of scope:
   build configurations.
 - Denial-of-service via resource exhaustion against a user's own machine.
 
+## Mystery shopper payment boundary
+
+The mystery shopper (`--journey`, `mystery_shop`, `shop_*` MCP tools) acts on live
+third-party shops. Its payment boundary is **best-effort**:
+
+- It refuses to press controls whose accessible name matches pay / place-order
+  patterns (English, Spanish, French, German). A pay step behind a generically named
+  button such as "Continue" is not caught by that match.
+- After each `shop_click`, it reports a warning when card inputs (`cc-*`, `card`,
+  `cvc`) or known payment iframes (Stripe, Adyen, Braintree, PayPal, Checkout.com) are
+  visible, so the agent can stop.
+- The hard guarantee is structural: **no tool can type into forms**, so card or
+  personal data can never be entered.
+
+Known side effects: it adds an item to a real cart, and may accept cookies to dismiss a
+blocking banner when no reject option exists.
+
 ## Security Practices in This Repository
 
 This repository ships with several defensive defaults:

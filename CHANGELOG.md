@@ -21,8 +21,17 @@ Guidelines:
 
 ## [Unreleased]
 
+### Changed
+
+- Repositioned as an agent-readiness auditor for standards-following shopping agents; the Muse Code verdict is a labeled second opinion (review follow-up).
+- `price-drift` is informational for a higher total; it fails only when the total is below the product price (spec: mystery-shopper).
+- robots.txt blocks of `facebookexternalhit` / `FacebookBot` are warnings; `meta-externalagent` / `meta-externalfetcher` stay errors (spec: muse-commerce-auditor).
+- Cookie banners are dismissed with reject / dismiss-only first; accept-all is a disclosed fallback (spec: mystery-shopper).
+- A bare HTTP 503 is retried once before being reported (spec: muse-commerce-auditor).
+
 ### Added
 
+- `shop_click` warns when payment inputs appear; checkout walk stops on loops; approval-policy errors name the targeted SDK version.
 - Chromium agent-readiness auditor with optional Muse Code analysis via `@muse-code/sdk` (spec: muse-commerce-auditor).
 - Mystery shopper journey (`--journey`, `mystery_shop` and stepwise `shop_*` MCP tools) that stops at the payment boundary (spec: mystery-shopper).
 

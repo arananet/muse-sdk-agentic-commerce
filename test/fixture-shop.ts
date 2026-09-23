@@ -27,6 +27,15 @@ const PAGES: Record<string, string> = {
     <label>Postal code <input name="zip" autocomplete="shipping postal-code"></label>
     <p>Shipping 4,95 €</p><p>Total 54,85 €</p>
     <button type="submit">Place order</button></form></body></html>`,
+  "/pdp-reject": `<html><body><div role="dialog" aria-label="Cookies" style="position:fixed;inset:0;background:#fff">
+      <button onclick="this.parentNode.remove()">Accept all</button><button onclick="this.parentNode.remove()">Reject all</button></div>
+    <h1>Mug</h1><p>10,00 €</p><a href="/checkout">Add to cart</a></body></html>`,
+  "/cheap": `<html><head>${product("49.90")}</head><body><h1>Mug</h1><p>49,90 €</p><a href="/cheap-checkout">Add to cart</a></body></html>`,
+  "/cheap-checkout": `<html><body><form><label>Email <input type="email" name="email" autocomplete="email"></label><p>Total 40,00 €</p><button>Place order</button></form></body></html>`,
+  "/loop": `<html><body><h1>Mug</h1><p>10,00 €</p><button onclick="document.getElementById('m').textContent='Added'">Add to cart</button>
+    <p id="m" aria-live="polite"></p><button>View cart</button></body></html>`,
+  "/card": `<html><body><h1>Shipping</h1><a href="/card-pay">Continue</a></body></html>`,
+  "/card-pay": `<html><body><h1>Payment</h1><label>Card number <input name="cardnumber" autocomplete="cc-number"></label></body></html>`,
   "/silent": `<html><body><h1>Mug</h1><p>49,90 €</p><button onclick="window.__added=1">Add to cart</button></body></html>`,
   "/wall": `<html><body><h1>Mug</h1><p>10,00 €</p><a href="/login-checkout">Add to cart</a></body></html>`,
   "/login-checkout": `<html><body><h1>Sign in to check out</h1><form><label>Email <input type="email" name="email" autocomplete="email"></label>
@@ -36,16 +45,20 @@ const PAGES: Record<string, string> = {
 export interface Shop {
   base: string;
   payHits: number;
+  flakyHits: number;
   close(): void;
 }
 
 export async function startShop(): Promise<Shop> {
-  const shop = { base: "", payHits: 0, close: () => server.close() };
+  const shop = { base: "", payHits: 0, flakyHits: 0, close: () => server.close() };
   const server: Server = createServer((req, res) => {
     if (req.url === "/pay") {
       shop.payHits++;
       return res.end("paid");
     }
+    if (req.url === "/flaky" && ++shop.flakyHits === 1) return res.writeHead(503).end("busy");
+    if (req.url === "/down") return res.writeHead(503).end("busy");
+    if (req.url === "/flaky") return res.end(`<h1>Back</h1>`);
     if (req.url === "/robots.txt") return res.end("User-agent: *\nAllow: /\n");
     const html = PAGES[req.url ?? ""];
     const style = "<style>body{font:16px system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#1d1d1f}button,a{font:inherit}button{padding:8px 16px;border-radius:8px;border:1px solid #888;background:#111;color:#fff}select,input{font:inherit;padding:6px;margin:4px 0 12px;display:block}</style>";

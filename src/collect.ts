@@ -27,6 +27,8 @@ export interface CollectOptions {
   userAgent?: string;
   timeoutMs?: number;
   browser?: Browser;
+  /** Delay before the single retry of a bare HTTP 503 (default 3000 ms). */
+  retryDelayMs?: number;
 }
 
 export async function collect(url: string, opts: CollectOptions = {}): Promise<Evidence> {
@@ -35,7 +37,14 @@ export async function collect(url: string, opts: CollectOptions = {}): Promise<E
   try {
     const context = await browser.newContext(opts.userAgent ? { userAgent: opts.userAgent } : {});
     const page = await context.newPage();
-    const response = await page.goto(url, { waitUntil: "networkidle", timeout });
+    let response = await page.goto(url, { waitUntil: "networkidle", timeout });
+    let retried = false;
+    if (response?.status() === 503 && !CHALLENGE.test(await response.text())) {
+      // A bare 503 is often transient: retry once before calling it a bot wall.
+      await page.waitForTimeout(opts.retryDelayMs ?? 3000);
+      response = await page.goto(url, { waitUntil: "networkidle", timeout });
+      retried = true;
+    }
     const finalUrl = page.url();
 
     const robotsTxt = await fetchRobots(context.request, finalUrl);
@@ -46,6 +55,7 @@ export async function collect(url: string, opts: CollectOptions = {}): Promise<E
       ),
     );
     const controls = await readPurchaseControls(page);
+    // Truncated to bound memory: a price rendered past the first 20k chars is not seen by priceVisible().
     const visibleText = (await page.locator("body").innerText({ timeout })).slice(0, 20000);
     const ariaSnapshot = (await page.locator("body").ariaSnapshot({ timeout })).slice(0, 20000);
     const title = await page.title();
@@ -69,7 +79,7 @@ export async function collect(url: string, opts: CollectOptions = {}): Promise<E
       unnamedPurchaseControls: controls.unnamed,
       visibleText,
       ariaSnapshot,
-      botWall: detectBotWall(status, html, visibleText),
+      botWall: detectBotWall(status, html, visibleText, retried),
     };
   } finally {
     if (!opts.browser) await browser.close();
@@ -147,11 +157,12 @@ async function collectNoJs(browser: Browser, html: string) {
   }
 }
 
-function detectBotWall(status: number | null, html: string, text: string): string | null {
+const CHALLENGE = /cf-chl|challenge-platform|captcha|perimeterx|px-captcha|datadome|akamai/i;
+
+function detectBotWall(status: number | null, html: string, text: string, retried = false): string | null {
   if (status === 403 || status === 429 || status === 503) {
-    if (/cf-chl|challenge-platform|captcha|perimeterx|px-captcha|datadome|akamai/i.test(html)) {
-      return `HTTP ${status} with an anti-bot challenge`;
-    }
+    if (CHALLENGE.test(html)) return `HTTP ${status} with an anti-bot challenge`;
+    if (status === 503 && retried) return "HTTP 503 (transient or bot protection; retried once)";
     return `HTTP ${status}`;
   }
   if (/verify you are (a )?human|are you a robot|g-recaptcha|h-captcha|cf-turnstile/i.test(html + text)) {

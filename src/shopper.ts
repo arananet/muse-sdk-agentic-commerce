@@ -7,7 +7,10 @@ import { findProducts } from "./collect.js";
 
 /** Controls the shopper must never press: the payment boundary. */
 export const PAY = /\b(pay|place (your )?order|complete (purchase|order)|confirm (and pay|order|purchase)|buy now and pay|submit order)\b|pagar|realizar pedido|confirmar (pedido|compra)|finalizar compra y pagar|payer|commande confirm/i;
-const OVERLAY = /^(accept( all)?( cookies)?|allow all|agree|i agree|got it|ok|aceptar( todo| todas)?( las cookies)?|entendido|close|cerrar|dismiss|no,? thanks|no gracias|continue shopping|×|✕)$/i;
+/** Controls that close an overlay without granting consent: preferred. */
+const DISMISS = /^(reject( all)?( cookies)?|decline( all)?|deny|only (necessary|essential)( cookies)?|necessary only|use necessary cookies only|rechazar( todo| todas)?( las cookies)?|solo (necesarias|esenciales)|close|cerrar|dismiss|no,? thanks|no gracias|continue shopping|got it|ok|entendido|×|✕)$/i;
+/** Controls that dismiss by granting consent: only a fallback, reported as such. */
+const ACCEPT = /^(accept( all)?( cookies)?|allow all( cookies)?|agree|i agree|aceptar( todo| todas)?( las cookies)?)$/i;
 const ADD = /add to (cart|bag|basket)|añadir (al|a la) (carrito|cesta)|agregar al carrito|ajouter au panier|in den warenkorb/i;
 const TO_CHECKOUT = /checkout|proceed|tramitar|finalizar (pedido|compra)|ir a pagar|continuar (con|al) (el )?(pago|pedido)|caisse|zur kasse/i;
 const TO_CART = /view (cart|bag|basket)|go to (cart|bag|basket)|^(cart|bag|basket)\b|ver (el )?(carrito|cesta)|ir al carrito|^carrito|^cesta|panier|warenkorb/i;
@@ -110,10 +113,14 @@ export async function runJourney(url: string, opts: JourneyOptions = {}): Promis
     r.checkoutTotal = await totalOnPage(page);
     if (r.productPrice !== null && r.checkoutTotal !== null) {
       r.priceDrift = round2(r.checkoutTotal - r.productPrice);
+      // Tax and shipping make a higher total normal, so drift is informational; a total *below* the
+      // product price is the suspicious direction.
+      const below = r.priceDrift < -0.01;
       step(
         "price-drift",
-        r.priceDrift > 0 ? "failed" : "passed",
-        `Product ${r.productPrice} → checkout total ${r.checkoutTotal} (${r.priceDrift >= 0 ? "+" : ""}${r.priceDrift})`,
+        below ? "failed" : "passed",
+        `Product ${r.productPrice} → checkout total ${r.checkoutTotal} (${r.priceDrift >= 0 ? "+" : ""}${r.priceDrift})` +
+          (below ? ": total is below the product price" : r.priceDrift > 0 ? ": likely tax/shipping, check it is disclosed" : ""),
       );
     } else {
       step("price-drift", "skipped", "Could not read both the product price and a checkout total");
@@ -167,12 +174,13 @@ async function obstruction(el: Locator): Promise<string | null> {
 async function dismissOverlays(page: Page): Promise<string[]> {
   const dismissed: string[] = [];
   for (let i = 0; i < 3; i++) {
-    const btn = await firstVisible(page, ["button"], OVERLAY);
+    const dismiss = await firstVisible(page, ["button"], DISMISS);
+    const btn = dismiss ?? (await firstVisible(page, ["button"], ACCEPT));
     if (!btn) break;
     const name = await accessibleName(btn);
     await btn.click();
     await page.waitForTimeout(200);
-    dismissed.push(name);
+    dismissed.push(dismiss ? name : `${name} (consent granted)`);
   }
   return dismissed;
 }
@@ -240,12 +248,18 @@ function cartSignal(a: Observation, b: Observation): string | null {
 
 async function walkToCheckout(page: Page): Promise<{ status: StepStatus; detail: string }> {
   const path: string[] = [];
+  const clicked = new Set<string>();
   for (let hop = 0; hop < 3; hop++) {
     if (await isCheckout(page)) return { status: "passed", detail: `Reached checkout at ${page.url()}${path.length ? ` via ${path.join(" → ")}` : ""}` };
     const next = (await firstVisible(page, ["button", "link"], TO_CHECKOUT)) ?? (await firstVisible(page, ["link", "button"], TO_CART));
     if (!next) break;
     const name = await accessibleName(next);
     if (PAY.test(name)) break;
+    const key = `${page.url()}|${name}`;
+    if (clicked.has(key)) {
+      return { status: "failed", detail: `Loop detected: "${name}" on ${page.url()} neither navigates nor reaches checkout` };
+    }
+    clicked.add(key);
     path.push(`"${name}"`);
     await next.click();
     await page.waitForLoadState("networkidle").catch(() => {});
@@ -280,6 +294,17 @@ async function autocompleteCoverage(page: Page) {
   );
   const missing = rows.filter((x) => !x.ac || x.ac === "on" || x.ac === "off").map((x) => x.name);
   return { fields: rows.length, covered: rows.length - missing.length, missing };
+}
+
+/** Payment inputs visible on the page (card fields or known payment iframes); empty when none. */
+export async function paymentInputs(page: Page): Promise<string[]> {
+  return page.$$eval(
+    'input[autocomplete^="cc-"], input[name*="card" i], input[name*="cvc" i], input[name*="cvv" i], iframe[src*="stripe"], iframe[src*="adyen"], iframe[src*="braintree"], iframe[src*="paypal"], iframe[src*="checkout.com"]',
+    (els) =>
+      els
+        .filter((e) => (e as HTMLElement).offsetParent !== null)
+        .map((e) => (e.tagName === "IFRAME" ? `iframe ${new URL((e as HTMLIFrameElement).src, location.href).host}` : (e.getAttribute("autocomplete") ?? e.getAttribute("name") ?? "input"))),
+  );
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

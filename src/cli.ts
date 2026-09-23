@@ -5,8 +5,8 @@ import { collect } from "./collect.js";
 
 const HELP = `usage: muse-commerce-audit <url> [--json] [--user-agent UA] [--journey [--trace FILE]] [--muse] [--muse-bin PATH] [--model ID]
 
-Loads <url> in headless Chromium and reports whether an AI shopping agent can
-read and act on it. --journey runs the mystery shopper up to the pay button
+Loads <url> in headless Chromium and reports how ready the page is for AI shopping
+agents (agent-readiness audit on public standards). --journey runs the mystery shopper up to the pay button
 (adds an item to a real cart; never types or pays). --muse also has a real Muse Code agent browse the page itself
 through this repo's commerce_audit MCP server (needs the muse CLI).`;
 
@@ -61,10 +61,11 @@ else print(report, museReply);
 process.exit(report.findings.some((f) => f.severity === "error") ? 1 : 0);
 
 function print(r: Report, reply?: string) {
-  console.log(`\n${r.url}\nAgent-readiness score: ${r.score}/100\n`);
+  if (reply) console.log("\n── Deterministic audit (public standards) ──");
+  console.log(`\n${r.url}\nAgent-readiness score: ${r.score}/100 (rough ordering signal)\n`);
   for (const p of r.products) console.log(`Product: ${p.name} — ${p.price} ${p.currency ?? ""} ${p.availability ?? ""}`);
   const icon = { error: "✗", warning: "!", info: "i" };
   for (const f of r.findings) console.log(`  ${icon[f.severity]} [${f.id}] ${f.message}`);
   if (r.findings.length === 0) console.log("  ✓ no findings");
-  if (reply) console.log(`\nMuse assessment:\n${reply}`);
+  if (reply) console.log(`\n── Muse Code second opinion (a frontier agent via @muse-code/sdk, not Meta's shopping agent) ──\n${reply}`);
 }

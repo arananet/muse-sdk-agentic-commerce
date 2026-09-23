@@ -17,9 +17,19 @@ export interface Report {
   products: { name?: unknown; price?: unknown; currency?: unknown; availability?: unknown }[];
 }
 
-/** Meta's documented crawler/fetcher user agents (developers.facebook.com/docs/sharing/webmasters/web-crawlers). */
-export const META_AGENTS = ["meta-externalagent", "meta-externalfetcher", "facebookexternalhit", "FacebookBot"];
+/**
+ * Meta's documented crawler/fetcher user agents (developers.facebook.com/docs/sharing/webmasters/web-crawlers).
+ * These are crawlers, not the shopping agent's (unpublished) browsing UA. Blocking the AI-data agents is an
+ * error; blocking the link-preview / legacy bots is common and only loosely related, so it is a warning.
+ */
+export const META_AGENTS: { ua: string; severity: Severity }[] = [
+  { ua: "meta-externalagent", severity: "error" },
+  { ua: "meta-externalfetcher", severity: "error" },
+  { ua: "facebookexternalhit", severity: "warning" },
+  { ua: "FacebookBot", severity: "warning" },
+];
 
+/** Uncalibrated weights: the score is a rough ordering signal, not a measured grade. */
 const WEIGHT: Record<Severity, number> = { error: 25, warning: 10, info: 0 };
 
 export function evaluate(ev: Evidence): Report {
@@ -32,8 +42,8 @@ export function evaluate(ev: Evidence): Report {
   if (ev.robotsTxt !== null) {
     const groups = parseRobots(ev.robotsTxt);
     const path = new URL(ev.finalUrl).pathname;
-    for (const ua of META_AGENTS) {
-      if (!isAllowed(groups, ua, path)) add(`robots-${ua.toLowerCase()}`, "error", `robots.txt disallows ${ua} for ${path}`);
+    for (const { ua, severity } of META_AGENTS) {
+      if (!isAllowed(groups, ua, path)) add(`robots-${ua.toLowerCase()}`, severity, `robots.txt disallows ${ua} for ${path}`);
     }
   }
 
