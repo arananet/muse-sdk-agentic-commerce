@@ -1,0 +1,39 @@
+title: "Muse commerce auditor"
+slug: "muse-commerce-auditor"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-09-23"
+updated_at: "2026-09-23"
+
+description: |
+  A CLI that loads a shop URL in real headless Chromium (Playwright) and reports
+  whether an AI shopping agent such as Meta Muse can discover, understand and act
+  on the page without the Universal Commerce Protocol: crawler access in
+  robots.txt, bot walls, schema.org Product/Offer data, server-rendered content,
+  accessible purchase controls, and price consistency. An optional --muse mode
+  hands the collected evidence to a real Muse Code agent through the official
+  @muse-code/sdk (developer preview) and prints its assessment. Checks are
+  heuristics derived from public web standards; Meta has not published the rules
+  its consumer agent applies.
+
+acceptance_criteria:
+  - "Given a product page with valid Product JSON-LD, an accessible add-to-cart button and allowed crawlers, when audited, then no error findings are reported and the score is 100"
+  - "Given a page whose product data only exists after JavaScript runs, when audited, then a warning reports that the no-JS render lacks product data"
+  - "Given a robots.txt that disallows meta-externalagent, when audited, then an error finding names that user agent"
+  - "Given a purchase control without an accessible name, when audited, then an error reports that no accessible add-to-cart/buy control exists"
+  - "Given --json, when audited, then the report is printed as machine-readable JSON"
+  - "Given --muse and a muse binary, when audited, then the evidence is sent to a Muse Code session via @muse-code/sdk, every tool approval is denied, and the agent reply is printed"
+
+test_plan:
+  - "Unit: robots.txt parser applies longest-match allow/disallow per user agent"
+  - "Integration: audit real fixture pages served by a local HTTP server in real Chromium for each acceptance scenario"
+  - "Manual: run --muse against a real muse binary (not available in CI)"
+
+out_of_scope:
+  - "Universal Commerce Protocol endpoints"
+  - "Completing real purchases or submitting checkout forms"
+
+linked_issues: []
+linked_prs: []
