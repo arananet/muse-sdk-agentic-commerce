@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "commerce_audit": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["dist/src/mcp-server.js"],
+      "tool_timeout_sec": 120
+    }
+  }
+}

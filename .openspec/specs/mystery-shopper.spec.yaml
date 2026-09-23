@@ -1,0 +1,40 @@
+title: "Agentic mystery shopper"
+slug: "mystery-shopper"
+type: feature
+status: review
+
+author: "arananet"
+created_at: "2026-09-23"
+updated_at: "2026-09-23"
+
+description: |
+  Walks a shop's purchase journey in real headless Chromium the way a browsing
+  agent would, acting only through ARIA roles and accessible names: dismiss
+  overlays, choose a variant, add to cart, verify a machine-readable cart signal,
+  reach checkout, inspect form autocomplete coverage and guest checkout, and
+  measure price drift. It never types into forms and never presses a pay /
+  place-order control: the payment boundary is where it stops and reports.
+  The same capability is exposed to Muse Code as stepwise MCP tools with the
+  same payment guard, so the agent can drive the journey itself.
+
+acceptance_criteria:
+  - "Given a shop with a cookie overlay, a labeled variant select, an add-to-cart button with an aria-live confirmation, a cart and a checkout, when the journey runs, then every step up to the payment boundary is reported as passed"
+  - "Given the journey reaches a Pay / Place order control, when it runs, then that control is never clicked"
+  - "Given checkout inputs without autocomplete tokens, when inspected, then autocomplete coverage is reported below 100% with the missing fields named"
+  - "Given a checkout total higher than the product price, when the journey runs, then price drift is reported with both amounts"
+  - "Given an add-to-cart that gives no machine-readable feedback, when clicked, then the cart-signal step fails"
+  - "Given a checkout that requires a password with no guest option, when inspected, then a login wall is reported"
+  - "Given the MCP tools shop_open, shop_view, shop_click and shop_select, when Muse drives a session, then state persists across calls and shop_click refuses payment controls"
+  - "Given --journey [--trace file], when the CLI runs, then the journey report is printed and a Playwright trace is written"
+
+test_plan:
+  - "Integration: local fixture shop (PDP, cart, checkout) served over HTTP, journey in real Chromium, server asserts the pay endpoint was never hit"
+  - "Integration: fixture variants for silent add-to-cart and login-wall checkout"
+  - "Integration: MCP stepwise tools over a stdio pipe, including refused payment click"
+
+out_of_scope:
+  - "Typing personal or payment data into forms"
+  - "Placing real orders"
+
+linked_issues: []
+linked_prs: []

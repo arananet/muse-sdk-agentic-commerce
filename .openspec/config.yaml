@@ -12,12 +12,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 project:
-  name: "{{PROJECT_NAME}}"
-  owner: "{{GITHUB_OWNER}}"
-  team: "{{TEAM_NAME}}"
-  domain: "{{PROJECT_DOMAIN}}"
-  description: "{{PROJECT_DESCRIPTION}}"
-  tech_stack: "{{TECH_STACK}}"   # comma-separated, e.g. "python, fastapi, docker"
+  name: "muse-sdk-agentic-commerce"
+  owner: "arananet"
+  team: "arananet"
+  domain: "agentic-commerce"
+  description: "Chromium auditor that checks whether a web shop is readable and actionable by AI shopping agents (Meta Muse), with optional analysis via @muse-code/sdk"
+  tech_stack: "typescript, node, playwright, muse-code-sdk"   # comma-separated, e.g. "python, fastapi, docker"
 
 spec:
   required_fields:
@@ -37,7 +37,7 @@ spec:
 
 testing:
   require_tests: true
-  test_command: "{{TEST_COMMAND}}"
+  test_command: "npm test"
   coverage_threshold: null
   fail_on_missing_tests: true
 
