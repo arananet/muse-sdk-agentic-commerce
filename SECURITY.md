@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Security fixes are applied to the latest release line of `{{PROJECT_NAME}}`.
+Security fixes are applied to the latest release line of `muse-sdk-agentic-commerce`.
 Older releases receive fixes only when explicitly flagged in the
 [CHANGELOG](CHANGELOG.md).
 
@@ -15,13 +15,10 @@ Older releases receive fixes only when explicitly flagged in the
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Report vulnerabilities privately through one of these channels, in order of
-preference:
+Report vulnerabilities privately through one of these channels, via:
 
 1. **GitHub Private Vulnerability Reporting** — open the repository's
    **Security** tab and click **Report a vulnerability**.
-2. **Email** — send details to `{{SECURITY_CONTACT}}`. Encrypt with the
-   project's PGP key if the report contains exploit details.
 
 ### What to include
 
