@@ -6,7 +6,8 @@ import { collect } from "./collect.js";
 const HELP = `usage: muse-commerce-audit <url> [--json] [--user-agent UA] [--muse] [--muse-bin PATH] [--model ID]
 
 Loads <url> in headless Chromium and reports whether an AI shopping agent can
-read and act on it. --muse also asks a real Muse Code agent (needs the muse CLI).`;
+read and act on it. --muse also has a real Muse Code agent browse the page itself
+through this repo's commerce_audit MCP server (needs the muse CLI).`;
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -35,7 +36,7 @@ if (values.muse) {
     console.error("--muse needs the Muse Code CLI: put `muse` on PATH or pass --muse-bin PATH.");
     process.exit(3);
   }
-  museReply = await askMuse(evidence, report, { museBin: bin, modelId: values.model });
+  museReply = await askMuse(positionals[0], { museBin: bin, modelId: values.model });
 }
 
 if (values.json) console.log(JSON.stringify({ ...report, museReply }, null, 2));

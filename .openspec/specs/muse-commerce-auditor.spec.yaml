@@ -24,11 +24,15 @@ acceptance_criteria:
   - "Given a robots.txt that disallows meta-externalagent, when audited, then an error finding names that user agent"
   - "Given a purchase control without an accessible name, when audited, then an error reports that no accessible add-to-cart/buy control exists"
   - "Given --json, when audited, then the report is printed as machine-readable JSON"
-  - "Given --muse and a muse binary, when audited, then the evidence is sent to a Muse Code session via @muse-code/sdk, every tool approval is denied, and the agent reply is printed"
+  - "Given the commerce_audit MCP server over stdio, when tools/list and tools/call agent_view are sent, then it returns read-only tools and the page's real Chromium ARIA snapshot, status and purchase controls"
+  - "Given --muse and a muse binary in a trusted workspace, when audited, then a Muse Code session (via @muse-code/sdk) invokes the agentic-commerce-audit skill, only mcp__commerce_audit__ tools are approved, all else is denied, and the agent reply is printed"
+  - "Given --muse without the skill loaded, when audited, then the CLI explains that the workspace must be trusted"
 
 test_plan:
   - "Unit: robots.txt parser applies longest-match allow/disallow per user agent"
   - "Integration: audit real fixture pages served by a local HTTP server in real Chromium for each acceptance scenario"
+  - "Integration: drive the MCP server over a stdio pipe against a local shop page"
+  - "Unit: approval policy approves only commerce_audit MCP tools once and denies the rest"
   - "Manual: run --muse against a real muse binary (not available in CI)"
 
 out_of_scope:

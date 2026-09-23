@@ -1,56 +1,63 @@
-/** Sends audit evidence to a real Muse Code agent via @muse-code/sdk and returns its reply text. */
-import { MuseClient } from "@muse-code/sdk";
+/**
+ * Drives a real Muse Code session via @muse-code/sdk: the agent browses the shop itself through the
+ * project's `commerce_audit` MCP server (headless Chromium) and the `agentic-commerce-audit` skill.
+ */
+import { MuseClient, readSessionDurability, spawnMspConnection } from "@muse-code/sdk";
 import { accessSync, constants } from "node:fs";
-import { delimiter, join } from "node:path";
-import type { Evidence } from "./collect.js";
-import type { Report } from "./checks.js";
+import { delimiter, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const SKILL = "agentic-commerce-audit";
+export const TOOL_PREFIX = "mcp__commerce_audit__";
+/** Repository root: holds .mcp.json and .agents/skills, so it is the session's workspace. */
+export const WORKSPACE = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 export interface MuseOptions {
-  museBin?: string;
+  museBin: string;
   modelId?: string;
   onStderr?: (chunk: string) => void;
 }
 
-export function buildPrompt(ev: Evidence, report: Report): string {
-  return [
-    "You are acting as an AI shopping agent (like Meta Muse) that must buy the product on this page for a user.",
-    "Below is what headless Chromium observed. Do NOT use tools; reason only over this evidence.",
-    "Answer: (1) could you identify the product, price, currency and availability unambiguously?",
-    "(2) could you locate and operate the add-to-cart / buy control? (3) the top 5 concrete fixes, most important first.",
-    "",
-    `URL: ${ev.finalUrl}  HTTP ${ev.status}  title: ${ev.title}`,
-    `Heuristic findings: ${JSON.stringify(report.findings)}`,
-    `JSON-LD: ${JSON.stringify(ev.jsonLd).slice(0, 8000)}`,
-    `Purchase controls: ${JSON.stringify(ev.purchaseControls)}`,
-    "Accessibility tree (ARIA snapshot):",
-    ev.ariaSnapshot.slice(0, 12000),
-  ].join("\n");
+/** Approves our read-only Chromium tools once; denies everything else. */
+export function decide(toolName: string, choices: readonly { choiceId: string; decision: string; scope: string }[]) {
+  const wanted = toolName.startsWith(TOOL_PREFIX) ? ["approved"] : ["denied", "abort"];
+  const pick = choices.find((c) => wanted.includes(c.decision) && (c.decision !== "approved" || c.scope === "once"));
+  if (!pick) throw new Error(`no ${wanted.join("/")} choice offered for ${toolName}`);
+  return { choiceId: pick.choiceId };
 }
 
-export async function askMuse(ev: Evidence, report: Report, opts: MuseOptions = {}): Promise<string> {
-  const client = await MuseClient.spawn({
-    museBin: opts.museBin ?? "muse",
+export async function askMuse(url: string, opts: MuseOptions): Promise<string> {
+  const msp = await spawnMspConnection({
+    command: opts.museBin,
     args: ["serve"],
-    clientInfo: { name: "muse-commerce-audit", version: "0.1.0" },
+    cwd: WORKSPACE,
     onStderr: opts.onStderr,
-  });
+  }).initialize({ clientInfo: { name: "muse_commerce_audit", version: "0.1.0" } });
+  const client = new MuseClient(msp.connection, { durability: readSessionDurability(msp.initializeResult), host: msp });
   try {
     const session = await client.startSession({
-      workspaceRoot: process.cwd(),
+      workspaceRoot: WORKSPACE,
       ...(opts.modelId ? { modelId: opts.modelId } : {}),
     });
-    // Read-only analysis: deny every tool call the agent attempts.
-    session.onApproval((request) => {
-      const deny = request.availableChoices.find((c) => c.decision === "denied" || c.decision === "abort");
-      if (!deny) throw new Error(`no deny choice offered for ${request.toolName}`);
-      return { choiceId: deny.choiceId };
-    });
-    const turn = await session.sendUserTurn({ input: [{ type: "text", text: buildPrompt(ev, report) }] });
+    session.onApproval((req) => decide(req.toolName, req.availableChoices));
+
+    const listed = await msp.connection.request("skill/list", { sessionId: session.sessionId });
+    const skill = (listed.skills as { selector: string }[]).find((s) => s.selector === SKILL);
+    if (!skill) {
+      throw new Error(
+        `skill ${SKILL} not loaded: project skills and .mcp.json load only in a trusted workspace. ` +
+          `Run \`muse --trust-workspace\` once in ${WORKSPACE} and trust it, then retry.`,
+      );
+    }
+    const turn = await session.sendUserTurn({ input: [{ type: "skill", selector: skill.selector, arguments: url }] });
     const replies = new Map<string, string>();
     for await (const item of turn.items()) {
       if (item.kind === "agentMessage" && item.text) replies.set(item.itemId, item.text);
     }
-    await turn.completed;
+    const outcome = await turn.completed;
+    if (outcome.kind === "completed" && outcome.params.terminal === "failed") {
+      throw new Error(`Muse turn failed: ${JSON.stringify(outcome.params)}`);
+    }
     return [...replies.values()].join("\n\n");
   } finally {
     await client.close();

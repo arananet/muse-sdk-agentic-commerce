@@ -37,17 +37,29 @@ node dist/src/cli.js --user-agent "meta-externalagent/1.1" https://...
 
 Código de salida `1` si hay algún error (útil en CI).
 
-### Con Muse Code real
+### Con Muse Code real: Muse navega con Chromium
 
-Requiere el CLI `muse` de Muse Code instalado y autenticado:
+Siguiendo la [docu del developer preview](https://meta-models.github.io/muse-code-sdk/)
+(Extending Muse Code → MCP servers / Skills), el repo trae:
+
+- `.mcp.json` → servidor MCP stdio `commerce_audit` (`dist/src/mcp-server.js`) con dos
+  herramientas de solo lectura (`readOnlyHint`): `agent_view` (lo que percibe un agente
+  en Chromium: árbol ARIA, JSON-LD, controles de compra, bloqueos) y `audit_page` (checks y puntuación).
+- `.agents/skills/agentic-commerce-audit/SKILL.md` → skill que guía a Muse: ver la página,
+  repetir con UA `meta-externalagent`, auditar y dar veredicto + arreglos.
+
+Requisitos: CLI `muse` 1.3.x con sesión iniciada, `npm run build`, y confiar en el
+workspace (los `.mcp.json` y skills de proyecto solo cargan en workspaces de confianza):
 
 ```sh
-node dist/src/cli.js --muse [--muse-bin /ruta/muse] [--model ID] https://...
+muse --trust-workspace      # o abre `muse` una vez aquí y elige "Trust and continue"
+node dist/src/cli.js --muse https://tu-tienda.com/producto/123
 ```
 
-Lanza `muse serve`, abre una sesión MSP, envía el snapshot ARIA + JSON-LD +
-hallazgos, **deniega todas las aprobaciones de herramientas** (solo análisis) e
-imprime la respuesta del agente.
+`--muse` usa `@muse-code/sdk`: lanza `muse serve`, abre sesión con `workspaceRoot` en este
+repo, comprueba `skill/list`, invoca la skill con una parte `skill`, **aprueba solo las
+herramientas `mcp__commerce_audit__*`** (una vez) y deniega el resto, e imprime la respuesta.
+También puedes usarlo en el TUI de Muse: `/agentic-commerce-audit https://...`.
 
 ## Tests
 
@@ -56,7 +68,8 @@ npm test
 ```
 
 Levanta un servidor HTTP local con páginas fixture y las audita en Chromium real.
-El modo `--muse` no tiene test automático: necesita el binario `muse`.
+También prueba el servidor MCP por pipe stdio y la política de aprobaciones.
+El modo `--muse` extremo a extremo no tiene test automático: necesita el binario `muse`.
 
 ## Estructura
 
@@ -64,4 +77,5 @@ El modo `--muse` no tiene test automático: necesita el binario `muse`.
 - `src/checks.ts` — reglas y puntuación
 - `src/robots.ts` — parser robots.txt
 - `src/muse.ts` — integración `@muse-code/sdk`
+- `src/mcp-server.ts` — servidor MCP stdio para Muse Code
 - `.openspec/specs/muse-commerce-auditor.spec.yaml` — spec
