@@ -62,6 +62,14 @@ test("a cart control that goes nowhere stops with loop detected", async () => {
   assert.match(s["reach-checkout"].detail, /Loop detected: "View cart"/);
 });
 
+test("a request that never finishes does not stall the journey", async () => {
+  const started = Date.now();
+  const r = await runJourney(`${shop.base}/stall`, { browser, settleMs: 300 });
+  assert.equal(byId(r).load.status, "passed");
+  assert.equal(byId(r)["reach-checkout"].status, "passed");
+  assert.ok(Date.now() - started < 15000);
+});
+
 test("add-to-cart with no machine-readable feedback fails the cart signal", async () => {
   const s = byId(await runJourney(`${shop.base}/silent`, { browser }));
   assert.equal(s["add-to-cart"].status, "passed");

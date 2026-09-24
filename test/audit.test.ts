@@ -97,6 +97,17 @@ test("robots severity: AI-data crawlers are errors, preview bots warnings", asyn
   }
 });
 
+test("a request that never finishes does not stall the audit", async () => {
+  const shop = await startShop();
+  try {
+    const r = evaluate(await collect(`${shop.base}/stall`, { browser, settleMs: 300, timeoutMs: 8000 }));
+    assert.equal(r.products[0].name, "Ceramic Mug");
+    assert.ok(!r.findings.some((f) => f.id === "http-status" || f.id === "bot-wall"));
+  } finally {
+    shop.close();
+  }
+});
+
 test("bare 503 is retried once before being reported", async () => {
   const shop = await startShop();
   try {

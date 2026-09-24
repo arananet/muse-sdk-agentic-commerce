@@ -23,12 +23,32 @@ export interface Evidence {
 const PURCHASE_TEXT =
   /add to (cart|bag|basket)|buy( it)? now|checkout|añadir al carrito|agregar al carrito|comprar|ajouter au panier|in den warenkorb/i;
 
+/** Default budget for the optional network-idle wait after the load event. */
+export const SETTLE_MS = 5000;
+
+/**
+ * Waits for the network to go quiet, but never longer than `ms`. Real shops often never reach
+ * `networkidle` (tracking pixels, long-polling, chat widgets), so this is best-effort by design.
+ */
+export async function settle(page: Page, ms = SETTLE_MS): Promise<void> {
+  await page.waitForLoadState("networkidle", { timeout: ms }).catch(() => {});
+}
+
+/** Navigates to the load event, then settles; returns the navigation response. */
+export async function open(page: Page, url: string, timeout: number, settleMs = SETTLE_MS) {
+  const response = await page.goto(url, { waitUntil: "load", timeout });
+  await settle(page, settleMs);
+  return response;
+}
+
 export interface CollectOptions {
   userAgent?: string;
   timeoutMs?: number;
   browser?: Browser;
   /** Delay before the single retry of a bare HTTP 503 (default 3000 ms). */
   retryDelayMs?: number;
+  /** Budget for the best-effort network-idle wait (default SETTLE_MS). */
+  settleMs?: number;
 }
 
 export async function collect(url: string, opts: CollectOptions = {}): Promise<Evidence> {
@@ -37,12 +57,12 @@ export async function collect(url: string, opts: CollectOptions = {}): Promise<E
   try {
     const context = await browser.newContext(opts.userAgent ? { userAgent: opts.userAgent } : {});
     const page = await context.newPage();
-    let response = await page.goto(url, { waitUntil: "networkidle", timeout });
+    let response = await open(page, url, timeout, opts.settleMs);
     let retried = false;
     if (response?.status() === 503 && !CHALLENGE.test(await response.text())) {
       // A bare 503 is often transient: retry once before calling it a bot wall.
       await page.waitForTimeout(opts.retryDelayMs ?? 3000);
-      response = await page.goto(url, { waitUntil: "networkidle", timeout });
+      response = await open(page, url, timeout, opts.settleMs);
       retried = true;
     }
     const finalUrl = page.url();

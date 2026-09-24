@@ -36,6 +36,8 @@ const PAGES: Record<string, string> = {
     <p id="m" aria-live="polite"></p><button>View cart</button></body></html>`,
   "/card": `<html><body><h1>Shipping</h1><a href="/card-pay">Continue</a></body></html>`,
   "/card-pay": `<html><body><h1>Payment</h1><label>Card number <input name="cardnumber" autocomplete="cc-number"></label></body></html>`,
+  "/stall": `<html><head>${product("12.00")}</head><body><h1>Tracked mug</h1><p>12,00 €</p>
+    <script>fetch("/hang")</script><a href="/checkout">Add to cart</a></body></html>`,
   "/silent": `<html><body><h1>Mug</h1><p>49,90 €</p><button onclick="window.__added=1">Add to cart</button></body></html>`,
   "/wall": `<html><body><h1>Mug</h1><p>10,00 €</p><a href="/login-checkout">Add to cart</a></body></html>`,
   "/login-checkout": `<html><body><h1>Sign in to check out</h1><form><label>Email <input type="email" name="email" autocomplete="email"></label>
@@ -50,12 +52,21 @@ export interface Shop {
 }
 
 export async function startShop(): Promise<Shop> {
-  const shop = { base: "", payHits: 0, flakyHits: 0, close: () => server.close() };
+  const shop = {
+    base: "",
+    payHits: 0,
+    flakyHits: 0,
+    close: () => {
+      server.closeAllConnections();
+      server.close();
+    },
+  };
   const server: Server = createServer((req, res) => {
     if (req.url === "/pay") {
       shop.payHits++;
       return res.end("paid");
     }
+    if (req.url === "/hang") return; // like a tracking pixel that never completes
     if (req.url === "/flaky" && ++shop.flakyHits === 1) return res.writeHead(503).end("busy");
     if (req.url === "/down") return res.writeHead(503).end("busy");
     if (req.url === "/flaky") return res.end(`<h1>Back</h1>`);
