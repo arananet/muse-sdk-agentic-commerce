@@ -35,7 +35,9 @@ export function decide(toolName: string, choices: readonly { choiceId: string; d
 export async function askMuse(url: string, opts: MuseOptions): Promise<string> {
   const msp = await spawnMspConnection({
     command: opts.museBin,
-    args: ["serve"],
+    // Trust is scoped to WORKSPACE (this repository), whose .mcp.json and skill we ship; validated
+    // against Muse Code 1.3.0 to load the skill without an interactive trust step.
+    args: ["serve", "--trust-workspace"],
     cwd: WORKSPACE,
     onStderr: opts.onStderr,
   }).initialize({ clientInfo: { name: "muse_commerce_audit", version: "0.1.0" } });
@@ -51,8 +53,8 @@ export async function askMuse(url: string, opts: MuseOptions): Promise<string> {
     const skill = (listed.skills as { selector: string }[]).find((s) => s.selector === SKILL);
     if (!skill) {
       throw new Error(
-        `skill ${SKILL} not loaded: project skills and .mcp.json load only in a trusted workspace. ` +
-          `Run \`muse --trust-workspace\` once in ${WORKSPACE} and trust it, then retry.`,
+        `skill ${SKILL} not loaded from ${WORKSPACE} although the host was started with --trust-workspace. ` +
+          `Check \`muse skills list\` there and that \`npm run build\` has produced dist/.`,
       );
     }
     const turn = await session.sendUserTurn({ input: [{ type: "skill", selector: skill.selector, arguments: url }] });

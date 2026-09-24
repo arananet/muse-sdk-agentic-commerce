@@ -3,7 +3,7 @@
  * accessible names only. Never types into forms and never presses a pay / place-order control.
  */
 import { chromium, type Browser, type Locator, type Page } from "playwright";
-import { findProducts } from "./collect.js";
+import { findProducts, open, settle } from "./collect.js";
 
 /** Controls the shopper must never press: the payment boundary. */
 export const PAY = /\b(pay|place (your )?order|complete (purchase|order)|confirm (and pay|order|purchase)|buy now and pay|submit order)\b|pagar|realizar pedido|confirmar (pedido|compra)|finalizar compra y pagar|payer|commande confirm/i;
@@ -40,6 +40,8 @@ export interface JourneyOptions {
   userAgent?: string;
   tracePath?: string;
   timeoutMs?: number;
+  /** Budget for each best-effort network-idle wait (default SETTLE_MS). */
+  settleMs?: number;
 }
 
 export async function runJourney(url: string, opts: JourneyOptions = {}): Promise<JourneyReport> {
@@ -62,7 +64,7 @@ export async function runJourney(url: string, opts: JourneyOptions = {}): Promis
   };
   const step = (id: string, status: StepStatus, detail: string) => r.steps.push({ id, status, detail });
   try {
-    const res = await page.goto(url, { waitUntil: "networkidle" });
+    const res = await open(page, url, opts.timeoutMs ?? 30000, opts.settleMs);
     if (!res || res.status() >= 400) {
       step("load", "failed", `HTTP ${res?.status() ?? "no response"}`);
       return finish(r);
@@ -88,7 +90,7 @@ export async function runJourney(url: string, opts: JourneyOptions = {}): Promis
     const addName = await accessibleName(add);
     const before = await observe(page);
     await add.click();
-    await page.waitForLoadState("networkidle").catch(() => {});
+    await settle(page, opts.settleMs);
     await page.waitForTimeout(300);
     step("add-to-cart", "passed", `Pressed "${addName}"`);
     const signal = cartSignal(before, await observe(page));
@@ -262,7 +264,7 @@ async function walkToCheckout(page: Page): Promise<{ status: StepStatus; detail:
     clicked.add(key);
     path.push(`"${name}"`);
     await next.click();
-    await page.waitForLoadState("networkidle").catch(() => {});
+    await settle(page);
     await dismissOverlays(page);
   }
   if (await isCheckout(page)) return { status: "passed", detail: `Reached checkout at ${page.url()} via ${path.join(" → ")}` };

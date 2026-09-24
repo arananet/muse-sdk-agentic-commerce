@@ -25,6 +25,8 @@ acceptance_criteria:
   - "Given a page whose product data only exists after JavaScript runs, when audited, then a warning reports that the no-JS render lacks product data"
   - "Given a robots.txt that disallows meta-externalagent or meta-externalfetcher, when audited, then an error finding names that user agent"
   - "Given a robots.txt that disallows only facebookexternalhit or FacebookBot, when audited, then the finding is a warning, not an error"
+  - "Given a page with a request that never finishes (tracking pixel, long-polling), when audited, then the audit proceeds after the load event and a bounded network-settle wait instead of timing out"
+  - "Given --muse, when the host is spawned, then it runs `muse serve --trust-workspace` scoped to this repository so its skill and MCP server load without an interactive trust step"
   - "Given a bare HTTP 503 without challenge markers, when audited, then the page is retried once before reporting 'HTTP 503 (transient or bot protection; retried once)'"
   - "Given a purchase control without an accessible name, when audited, then an error reports that no accessible add-to-cart/buy control exists"
   - "Given --json, when audited, then the report is printed as machine-readable JSON"
@@ -33,6 +35,7 @@ acceptance_criteria:
   - "Given --muse without the skill loaded, when audited, then the CLI explains that the workspace must be trusted"
 
 test_plan:
+  - "Integration: a fixture page holding a request open forever is audited and journeyed without timing out"
   - "Integration: robots severity per user agent and 503 retry against the local fixture server"
   - "Unit: robots.txt parser applies longest-match allow/disallow per user agent"
   - "Integration: audit real fixture pages served by a local HTTP server in real Chromium for each acceptance scenario"

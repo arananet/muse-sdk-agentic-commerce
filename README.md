@@ -34,7 +34,9 @@ node dist/src/cli.js --user-agent "meta-externalagent/1.1" https://...
 
 Exits with code `1` when any error is found (handy in CI). The 0–100 score is a rough
 ordering signal from uncalibrated weights (error −25, warning −10), not a calibrated grade:
-do not read 73 vs 81 as meaningful. A bare HTTP 503 is retried once before it is reported.
+do not read 73 vs 81 as meaningful. A bare HTTP 503 is retried once before it is reported. Pages are read after the `load`
+event plus a bounded (5 s) wait for the network to go quiet, because many real shops never
+reach network idle (tracking pixels, long-polling, chat widgets).
 
 ![Audit output](docs/screenshots/audit.png)
 
@@ -83,19 +85,32 @@ Following the [developer preview docs](https://meta-models.github.io/muse-code-s
   verdict — agent-readiness against public standards (ready / partially ready / not
   ready) — with fixes.
 
-Requirements: the `muse` CLI 1.3.x, logged in; `npm run build`; and a trusted workspace
-(project `.mcp.json` files and skills only load in trusted workspaces):
+Requirements: the `muse` CLI 1.3.x, logged in, and `npm run build`:
 
 ```sh
-muse --trust-workspace      # or open `muse` here once and pick "Trust and continue"
 node dist/src/cli.js --muse https://your-shop.example/product/123
 ```
 
-`--muse` uses `@muse-code/sdk`: it spawns `muse serve`, starts a session with this repo
+Project `.mcp.json` files and skills only load in trusted workspaces, so `--muse` spawns
+`muse serve --trust-workspace` for this repository. That trusts the repo for that run only
+(nothing is stored), which lets its skill and MCP server load; it was validated against
+Muse Code 1.3.0. To use the skill from the Muse TUI instead, trust the folder once
+(`muse --trust-workspace`, or pick "Trust and continue").
+
+`--muse` uses `@muse-code/sdk`: it spawns `muse serve --trust-workspace`, starts a session with this repo
 as `workspaceRoot`, checks `skill/list`, invokes the skill with a `skill` input part,
 **approves only `mcp__commerce_audit__*` tools** (once) and denies everything else, then
 prints the deterministic audit and the Muse Code second opinion as two labeled sections.
 In the Muse TUI: `/agentic-commerce-audit https://...`.
+
+## Validation
+
+A live end-to-end run against Shopify's [mock.shop](https://mock.shop/) — deterministic
+audit plus a real Muse Code turn that browsed, added to cart and stopped at
+`Complete order` — is documented with screenshots in
+[docs/validation](docs/validation/README.md).
+
+<img src="docs/validation/screenshots/mock-shop-audit.png" alt="Live mock.shop audit with the Muse Code second opinion" width="600">
 
 ## Tests
 
@@ -132,6 +147,7 @@ opening a PR.
 | Security policy | [`SECURITY.md`](SECURITY.md) |
 | Support channels | [`SUPPORT.md`](SUPPORT.md) |
 | Release history | [`CHANGELOG.md`](CHANGELOG.md) |
+| Live validation report | [`docs/validation`](docs/validation/README.md) |
 
 ---
 

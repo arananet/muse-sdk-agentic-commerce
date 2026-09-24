@@ -23,6 +23,8 @@ Guidelines:
 
 ### Changed
 
+- Pages are read after the `load` event plus a bounded network-settle wait instead of `networkidle`, so shops with never-ending tracking requests no longer time out (spec: muse-commerce-auditor).
+- `--muse` spawns `muse serve --trust-workspace` so the repo's skill and MCP server load without an interactive trust step; validated against Muse Code 1.3.0 (spec: muse-commerce-auditor).
 - Repositioned as an agent-readiness auditor for standards-following shopping agents; the Muse Code verdict is a labeled second opinion (review follow-up).
 - `price-drift` is informational for a higher total; it fails only when the total is below the product price (spec: mystery-shopper).
 - robots.txt blocks of `facebookexternalhit` / `FacebookBot` are warnings; `meta-externalagent` / `meta-externalfetcher` stay errors (spec: muse-commerce-auditor).
@@ -31,6 +33,7 @@ Guidelines:
 
 ### Added
 
+- Live validation report with screenshots: mock.shop end-to-end `--muse` run, `--trust-workspace` wiring, arananet.net negative control (`docs/validation`).
 - `shop_click` warns when payment inputs appear; checkout walk stops on loops; approval-policy errors name the targeted SDK version.
 - Chromium agent-readiness auditor with optional Muse Code analysis via `@muse-code/sdk` (spec: muse-commerce-auditor).
 - Mystery shopper journey (`--journey`, `mystery_shop` and stepwise `shop_*` MCP tools) that stops at the payment boundary (spec: mystery-shopper).

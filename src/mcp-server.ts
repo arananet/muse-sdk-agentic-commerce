@@ -5,7 +5,7 @@
  */
 import { createInterface } from "node:readline";
 import { evaluate } from "./checks.js";
-import { collect } from "./collect.js";
+import { collect, open, settle } from "./collect.js";
 import { PAY, paymentInputs, runJourney } from "./shopper.js";
 import { chromium, type Browser, type Page } from "playwright";
 
@@ -94,7 +94,7 @@ const text = (body: unknown, isError = false) => ({
 });
 
 async function view(page: Page, warning?: string) {
-  await page.waitForLoadState("networkidle").catch(() => {});
+  await settle(page);
   return text({
     url: page.url(),
     title: await page.title(),
@@ -113,7 +113,7 @@ async function stepTool(name: string, args: Record<string, unknown>) {
     const ctx = await browser.newContext(typeof args.user_agent === "string" ? { userAgent: args.user_agent } : {});
     tab = await ctx.newPage();
     tab.setDefaultTimeout(10000);
-    await tab.goto(url, { waitUntil: "networkidle" });
+    await open(tab, url, 30000);
     return view(tab);
   }
   if (name === "shop_close") {
@@ -130,7 +130,7 @@ async function stepTool(name: string, args: Record<string, unknown>) {
     for (const el of await tab.getByRole(role, { name: label, exact: true }).all()) {
       if (await el.isVisible()) {
         await el.click();
-        await tab.waitForLoadState("networkidle").catch(() => {});
+        await settle(tab);
         // The PAY guard only sees accessible names; a "Continue" button can still lead to payment.
         const pay = await paymentInputs(tab);
         return view(tab, pay.length ? `Payment inputs are now visible (${pay.join(", ")}): this is the payment boundary, stop here` : undefined);
