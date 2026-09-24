@@ -33,6 +33,7 @@ Guidelines:
 
 ### Added
 
+- Live validation report with screenshots: mock.shop end-to-end `--muse` run, `--trust-workspace` wiring, arananet.net negative control (`docs/validation`).
 - `shop_click` warns when payment inputs appear; checkout walk stops on loops; approval-policy errors name the targeted SDK version.
 - Chromium agent-readiness auditor with optional Muse Code analysis via `@muse-code/sdk` (spec: muse-commerce-auditor).
 - Mystery shopper journey (`--journey`, `mystery_shop` and stepwise `shop_*` MCP tools) that stops at the payment boundary (spec: mystery-shopper).

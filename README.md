@@ -103,6 +103,15 @@ as `workspaceRoot`, checks `skill/list`, invokes the skill with a `skill` input 
 prints the deterministic audit and the Muse Code second opinion as two labeled sections.
 In the Muse TUI: `/agentic-commerce-audit https://...`.
 
+## Validation
+
+A live end-to-end run against Shopify's [mock.shop](https://mock.shop/) — deterministic
+audit plus a real Muse Code turn that browsed, added to cart and stopped at
+`Complete order` — is documented with screenshots in
+[docs/validation](docs/validation/README.md).
+
+<img src="docs/validation/screenshots/mock-shop-audit.png" alt="Live mock.shop audit with the Muse Code second opinion" width="600">
+
 ## Tests
 
 ```sh
@@ -138,6 +147,7 @@ opening a PR.
 | Security policy | [`SECURITY.md`](SECURITY.md) |
 | Support channels | [`SUPPORT.md`](SUPPORT.md) |
 | Release history | [`CHANGELOG.md`](CHANGELOG.md) |
+| Live validation report | [`docs/validation`](docs/validation/README.md) |
 
 ---
 
