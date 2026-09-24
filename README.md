@@ -110,6 +110,8 @@ audit plus a real Muse Code turn that browsed, added to cart and stopped at
 `Complete order` — is documented with screenshots in
 [docs/validation](docs/validation/README.md).
 
+<img src="docs/validation/screenshots/mock-shop-page.png" alt="mock.shop demo store homepage as rendered during the audit, with its cookie banner" width="600">
+
 <img src="docs/validation/screenshots/mock-shop-audit.png" alt="Live mock.shop audit with the Muse Code second opinion" width="600">
 
 ## Tests
