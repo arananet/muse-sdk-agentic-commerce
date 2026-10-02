@@ -179,13 +179,24 @@ async function collectNoJs(browser: Browser, html: string) {
 
 const CHALLENGE = /cf-chl|challenge-platform|captcha|perimeterx|px-captcha|datadome|akamai/i;
 
+/**
+ * Only *visible* human-verification challenges count as a bot wall.
+ * Invisible reCAPTCHA v3 is score-based fraud prevention, not a challenge:
+ * Shopify ships its plumbing (`g-recaptcha-response`, `recaptcha-v3-token`)
+ * inside its own storefront JS, so matching bare `g-recaptcha` flagged nearly
+ * every Shopify store. A real v2 checkbox / hCaptcha renders a widget div
+ * with data-sitekey; v3 never does.
+ */
+const VISIBLE_CHALLENGE = /verify you are (a )?human|are you a robot|cf-turnstile/i;
+const CAPTCHA_WIDGET = /<[^>]*\b(?:g-recaptcha|h-captcha)(?!-response)\b[^>]*data-sitekey/i;
+
 function detectBotWall(status: number | null, html: string, text: string, retried = false): string | null {
   if (status === 403 || status === 429 || status === 503) {
     if (CHALLENGE.test(html)) return `HTTP ${status} with an anti-bot challenge`;
     if (status === 503 && retried) return "HTTP 503 (transient or bot protection; retried once)";
     return `HTTP ${status}`;
   }
-  if (/verify you are (a )?human|are you a robot|g-recaptcha|h-captcha|cf-turnstile/i.test(html + text)) {
+  if (VISIBLE_CHALLENGE.test(html + text) || CAPTCHA_WIDGET.test(html)) {
     return "CAPTCHA / human verification on page";
   }
   return null;

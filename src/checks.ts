@@ -14,7 +14,17 @@ export interface Report {
   url: string;
   score: number;
   findings: Finding[];
-  products: { name?: unknown; price?: unknown; currency?: unknown; availability?: unknown }[];
+  products: {
+    name?: unknown;
+    price?: unknown;
+    currency?: unknown;
+    availability?: unknown;
+    image?: unknown;
+    sku?: unknown;
+    gtin13?: unknown;
+    gtin?: unknown;
+    mpn?: unknown;
+  }[];
 }
 
 /**
@@ -58,8 +68,8 @@ export function evaluate(ev: Evidence): Report {
     if (p.price === undefined) add("offer-price", "error", "Product JSON-LD has no Offer price");
     if (!p.currency) add("offer-currency", "error", "Offer has no priceCurrency");
     if (!p.availability) add("offer-availability", "warning", "Offer has no availability");
-    if (!products[0].image) add("product-image", "warning", "Product JSON-LD has no image");
-    if (!products[0].sku && !products[0].gtin13 && !products[0].gtin && !products[0].mpn) {
+    if (!p.image) add("product-image", "warning", "Product JSON-LD has no image");
+    if (!p.sku && !p.gtin13 && !p.gtin && !p.mpn) {
       add("product-identifier", "warning", "Product has no sku/gtin/mpn identifier");
     }
     if (p.price !== undefined && !priceVisible(String(p.price), ev.visibleText)) {
@@ -81,11 +91,35 @@ export function evaluate(ev: Evidence): Report {
   return { url: ev.finalUrl, score, findings, products: summaries };
 }
 
+/**
+ * Shopify themes nest the sellable data under ProductGroup.hasVariant[]
+ * (variant Product → offers / image / sku); the group node itself carries
+ * none of it. Fall back to the first variant when present.
+ */
+function firstVariant(p: Record<string, unknown>): Record<string, unknown> {
+  const v = p.hasVariant;
+  if (Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null) {
+    return v[0] as Record<string, unknown>;
+  }
+  return p;
+}
+
 function summarize(p: Record<string, unknown>) {
-  const offers = ([] as unknown[]).concat(p.offers ?? []) as Record<string, unknown>[];
+  const node = firstVariant(p);
+  const offers = ([] as unknown[]).concat(node.offers ?? []) as Record<string, unknown>[];
   const o = offers[0] ?? {};
   const price = o.price ?? o.lowPrice ?? (o.priceSpecification as Record<string, unknown> | undefined)?.price;
-  return { name: p.name, price, currency: o.priceCurrency, availability: o.availability };
+  return {
+    name: p.name ?? node.name,
+    price,
+    currency: o.priceCurrency,
+    availability: o.availability,
+    image: node.image ?? p.image,
+    sku: node.sku ?? p.sku,
+    gtin13: node.gtin13 ?? p.gtin13,
+    gtin: node.gtin ?? p.gtin,
+    mpn: node.mpn ?? p.mpn,
+  };
 }
 
 function priceVisible(price: string, text: string): boolean {
